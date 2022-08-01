@@ -2,8 +2,8 @@
 pragma solidity ^0.8.0;
 
 interface IUserDashboard{
-    function setNftData(address currentOwner, address nftContractAddress, uint256 tokenId, address newOwner,uint256 askAmount, 
-        uint256 maxAskAmount, uint currentHighestBid, address currentHighestBidder, uint marketCreationTime, uint auctionEndTime) external;
+    function setNftData(address owner, address nftContractAddress, uint256 tokenId, string memory iPFS) external;
+    function getNftdata(bytes32 _uniKey) external view returns(address nftContractAddress, uint256 tokenId, address owner, string memory iPFS);
     function logIn() external;
     function logOut() external;
     function checkLogIn(address _userAddr) external view returns(bool);

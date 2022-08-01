@@ -32,6 +32,7 @@ contract WaterMelon is IWaterMelon, Helper, Ownable, ReentrancyGuard{
     struct Market{
         address contractAddress;
         uint256 tokenId;
+        string ipfs;
         OrderType orderType;
         OrderStatus orderStatus;
         uint256 askAmount;
@@ -89,7 +90,7 @@ contract WaterMelon is IWaterMelon, Helper, Ownable, ReentrancyGuard{
     }   
     /*Need to list currency and tokens with different amount as per thier price difference ...method needed...*/
     /////////////////// Listing NFT /////////////////////////////
-    function listNFT(address nftContractAddress, uint256 tokenId, uint256 price, 
+    function listNFT(address nftContractAddress, uint256 tokenId, string memory iPFS, uint256 price, 
                     OrderType orderType, uint256 maxPrice, uint256 auctionEndTime) private{
         bytes32 uniqueKey = getPrivateUniqueKey(nftContractAddress,tokenId);
         IERC721 nftContract = IERC721(nftContractAddress);
@@ -99,30 +100,35 @@ contract WaterMelon is IWaterMelon, Helper, Ownable, ReentrancyGuard{
         require (markets[uniqueKey].orderStatus != OrderStatus.MarketOpen, "Market order is already opened");
         require (price > 0,"Price Should be greater then 0");
         require (_userDashboard.checkLogIn(msg.sender), "for listing this nft, create account first or login to your account.");
-       
+        
+        uint endTime = block.timestamp + auctionEndTime;
+
         markets[uniqueKey].orderStatus = OrderStatus.MarketOpen; 
         markets[uniqueKey].orderType = orderType;
         markets[uniqueKey].askAmount = price;
         markets[uniqueKey].maxAskAmount = maxPrice;
         markets[uniqueKey].contractAddress = nftContractAddress;
         markets[uniqueKey].tokenId = tokenId;
+        markets[uniqueKey].ipfs = iPFS;
         markets[uniqueKey].currentOwner = payable(msg.sender);
         markets[uniqueKey].marketCreationTime = block.timestamp;
-        markets[uniqueKey].auctionEndTime = block.timestamp + auctionEndTime;
+        markets[uniqueKey].auctionEndTime = endTime;
         markets[uniqueKey].currentHighestBid = 0; ///after buying any nft, If new owner wanted to list nft of same 
         // tokenId, then currentHighestBid and newOwner values remain same as per last market.(this was error here but now resolved) 
         markets[uniqueKey].newOwner = address(0); 
         markets[uniqueKey].currentHighestBidder = address(0);
+
+        _userDashboard.setNftData(msg.sender, nftContractAddress, tokenId, iPFS);
     }
-    function listNFTForFixedType(address nftContractAddress, uint256 tokenId, uint256 price) external virtual override{
-        listNFT(nftContractAddress,tokenId,price,OrderType.Fixed, 0,0);
+    function listNFTForFixedType(address nftContractAddress, uint256 tokenId, string memory iPFS, uint256 price) external virtual override{
+        listNFT(nftContractAddress,tokenId, iPFS, price,OrderType.Fixed, 0,0);
     } 
-    function listNFTForAuctionType(address nftContractAddress, uint256 tokenId, uint256 price, uint256 maxPrice, uint256 auctionEndTime) external virtual override{
+    function listNFTForAuctionType(address nftContractAddress, uint256 tokenId,string memory iPFS, uint256 price, uint256 maxPrice, uint256 auctionEndTime) external virtual override{
         require (price < maxPrice, "end Price Should be greater than price"); 
         require (auctionEndTime > 0, "time must be real."); 
         // uint day = auctionEndTime * 1 days; for days uncomment this and pass day below.
         uint timeMinute = auctionEndTime * 1 minutes;
-        listNFT(nftContractAddress, tokenId, price, OrderType.Auction, maxPrice, timeMinute);
+        listNFT(nftContractAddress, tokenId,iPFS, price, OrderType.Auction, maxPrice, timeMinute);
     }      
     /////////////////// Buying fix ///////////////////////////
     function buyCurFixNFT(address nftContractAddress, uint256 tokenId ) external virtual override nonReentrant payable{ 
@@ -142,6 +148,8 @@ contract WaterMelon is IWaterMelon, Helper, Ownable, ReentrancyGuard{
         _userDashboard.setAmountRecord(creator,0,0,royalityFee,0); 
         _userDashboard.setAmountRecord(markets[uniqueKey].currentOwner,0,0,ownerShare,0); 
         _userDashboard.setAmountRecord(msg.sender,_amountValue,0,0,0); 
+        // _userDashboard.setNftData(msg.sender, nftContractAddress, tokenId, price, maxPrice, 0,address(0), block.timestamp, endTime);
+
     }
     function buyTokenFixNFT(address nftContractAddress, uint256 tokenId, uint price) external virtual override nonReentrant {  
         bytes32 uniqueKey = getPrivateUniqueKey(nftContractAddress,tokenId);

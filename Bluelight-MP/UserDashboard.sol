@@ -14,13 +14,8 @@ contract UserDashboard is IUserDashboard{
     struct MyNFT{
         address contractAddress;
         uint256 tokenId;
-        address newOwner;
-        uint256 askAmount;
-        uint256 maxAskAmount;
-        uint currentHighestBid;
-        address currentHighestBidder;
-        uint marketCreationTime;
-        uint auctionEndTime;
+        address owner;
+        string ipfs;
     }
     struct User{
         string userName;
@@ -46,37 +41,26 @@ contract UserDashboard is IUserDashboard{
     constructor(address wmAddr){
         waterMelonAddr = IWaterMelon(wmAddr);
     }
-    function getPrivateUniqueKey(address owner, address nftContractAddress, uint256 tokenId) internal pure returns (bytes32 NFTUniKey){
-        return keccak256(abi.encodePacked(owner, nftContractAddress, tokenId));
+    function getPrivateUniqueKey(address nftContractAddress, uint256 tokenId) internal pure returns (bytes32 NFTUniKey){
+        return keccak256(abi.encodePacked(nftContractAddress, tokenId));
     }
-    function setNftData(address currentOwner, address nftContractAddress, uint256 tokenId, address newOwner, uint256 askAmount, uint256 maxAskAmount, uint currentHighestBid, address currentHighestBidder,
-        uint marketCreationTime, uint auctionEndTime) external virtual override{
-        bytes32 uniKey = getPrivateUniqueKey(currentOwner, nftContractAddress, tokenId); 
+    function setNftData(address owner, address nftContractAddress, uint256 tokenId, string memory iPFS) external virtual override{
+        
+        bytes32 uniKey = getPrivateUniqueKey(nftContractAddress, tokenId); 
         
         myNFTs[uniKey].contractAddress = nftContractAddress;
         myNFTs[uniKey].tokenId = tokenId;
-        myNFTs[uniKey].newOwner = newOwner;
-        myNFTs[uniKey].askAmount = askAmount;
-        myNFTs[uniKey].maxAskAmount = maxAskAmount;
-        myNFTs[uniKey].currentHighestBid = currentHighestBid;
-        myNFTs[uniKey].currentHighestBidder = currentHighestBidder;
-        myNFTs[uniKey].marketCreationTime = marketCreationTime;
-        myNFTs[uniKey].auctionEndTime = auctionEndTime;
-
-        uniKeysMapping[currentOwner].push(uniKey);  
+        myNFTs[uniKey].owner = owner;
+        myNFTs[uniKey].ipfs = iPFS;
+        uniKeysMapping[owner].push(uniKey);  
     }
-    function getNftdata(bytes32 _uniKey) external view returns(address nftContractAddress, uint256 tokenId, address newOwner, uint256 askAmount, uint256 maxAskAmount, uint currentHighestBid, address currentHighestBidder,
-        uint marketCreationTime, uint auctionEndTime){
+    function getNftdata(bytes32 _uniKey) external virtual override view returns(address nftContractAddress, uint256 tokenId, address owner, string memory iPFS){
         bytes32 uniKey = _uniKey;
+        
         return ( myNFTs[uniKey].contractAddress,
         myNFTs[uniKey].tokenId,
-        myNFTs[uniKey].newOwner,
-        myNFTs[uniKey].askAmount,
-        myNFTs[uniKey].maxAskAmount,
-        myNFTs[uniKey].currentHighestBid,
-        myNFTs[uniKey].currentHighestBidder,
-        myNFTs[uniKey].marketCreationTime,
-        myNFTs[uniKey].auctionEndTime
+        myNFTs[uniKey].owner,
+        myNFTs[uniKey].ipfs
         );
     }
     function getUniKeysMapping(address ownerOfNfts) external view returns(bytes32[] memory){

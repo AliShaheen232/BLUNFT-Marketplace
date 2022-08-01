@@ -54,6 +54,12 @@ contract UserDashboard is IUserDashboard{
         myNFTs[uniKey].ipfs = iPFS;
         uniKeysMapping[owner].push(uniKey);  
     }
+    function setBuyNftData(address owner, bytes32 uniKey) external virtual override{
+        
+        myNFTs[uniKey].owner = owner;
+        
+        uniKeysMapping[owner].push(uniKey);  
+    }
     function getNftdata(bytes32 _uniKey) external virtual override view returns(address nftContractAddress, uint256 tokenId, address owner, string memory iPFS){
         bytes32 uniKey = _uniKey;
         

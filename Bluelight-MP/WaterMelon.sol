@@ -148,6 +148,9 @@ contract WaterMelon is IWaterMelon, Helper, Ownable, ReentrancyGuard{
         _userDashboard.setAmountRecord(creator,0,0,royalityFee,0); 
         _userDashboard.setAmountRecord(markets[uniqueKey].currentOwner,0,0,ownerShare,0); 
         _userDashboard.setAmountRecord(msg.sender,_amountValue,0,0,0); 
+        
+        _userDashboard.setNftData(msg.sender, nftContractAddress, tokenId, iPFS);
+
         // _userDashboard.setNftData(msg.sender, nftContractAddress, tokenId, price, maxPrice, 0,address(0), block.timestamp, endTime);
 
     }

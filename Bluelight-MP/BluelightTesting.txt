@@ -1,0 +1,87 @@
+Required: 2 new checks added in the Listing method. 
+
+1. the owner of nft can list the nft in MP.
+2. Before listing nft, owner need to approve MP for this nft.
+
+1 issue resolved.
+new owner buy nft of tokenId = 3, and if new owner wanted to list this nft(tokenId = 3),
+then current owner var value = this owner address, but new owner address remains same as per last listing means in new listing currentOwner = newOwner.
+
+Testing Log:
+
+1. listNFTForFixedType visibility external, listing nft by passing arguments through listNFT method, tested in 3 ways.
+a. listing nft for fixed type without making MP approved for such nft,  which reverts this message "MP is not approved." after approval, working correctly.
+b. listing nft for fixed type with unknown address, which reverts this message  "caller is not token owner." with the owner address working correctly.
+c.  listing already listed nft  which revert this message. "Market order is already opened". after canceling this listing, I was able to list this nft again without any message.
+
+2. listNFTForAuctionType  visibility external, listing nft by passing arguments through listNFT method, tested in 1 way extra than listNFTForFixedType. because 6.a, 6.b and 6.c work the same for this method. 
+a. in listing passing end price less than price, which revert this message  "end Price Should be greater than price".
+
+3. cancel Method tested in 3 ways. 1 nft listed in the marketplace.
+
+a. With any unknown address calling method of nft canceled in MP, which revert this message "only for market operator".
+b. With the market operator address calling method of nft canceled in MP, with success nft got canceled.
+c. With the market operator address calling method of nft canceled with the same token id in MP, which reverts this message "Market order is not opened".
+
+4. buyCurFixNFT public visibility tested in 4 ways. in this method we can't buy auction type listed nft.
+a. Trying to buy nft of auction type which revert this message "To buy nft auction type buy with curBids/tokenBids.".
+b. Trying to buy nft with canceled status, which revert this message "Market order is not opened or not existed".
+c. Trying to buy nft with less price, which revert this message  "Value not matched".
+d. buy nft with higher price working correct. and nft transferred successfully to new owner. checked by NFTToken.sol/ownerOf method.
+
+Seller amount, platform fee, royalty and ownerShare value sent to concerned addresses in their wallets.
+
+5. buyTokenFixNFT public visibility tested in 4 ways. In this method we can't buy auction type listed nfts. this method buying by using fixedBuyingMethod which works fine.
+a. Trying to buy nft with less price, which revert this message  "Value not matched".
+b. Trying to buy nft with unknown address. who has not approved any amount to contract so this message appeared "ERC20: insufficient allowance".
+c. Trying to buy nft of auction type which revert this message "To buy nft auction type buy with curBids/tokenBids.".
+d. Trying to buy nft with canceled status, which revert this message "Market order is not opened or not existed".
+e.  buy nft with a higher price working correctly. and nft transferred successfully to the new owner. checked by NFTToken.sol/ownerOf method.
+
+Seller amount, platform fee, royalty and ownerShare token transfer to concerned.
+
+6. bidCurrencyNFT public visibility tested in 3 ways. In this method we can't buy fixed type listed nfts. this method buying by using auctionBuyingMethodwhich works fine.
+a.Trying to buy nft of auction type which revert this message "To buy nft fixed type buy with buyNFTwithCur/buyNFTwithToken."
+a. Trying to buy nft with maxAskAmount bid before max. time. which shows this console log ("You won the bid. your bid is >= maxAskAmount.") and added bid in the current highest bid.
+
+All tests are the same as 7.a, 7.b, 7.c, 7.d.
+
+Not Working Correctly.
+
+7. bidTokenNFT public visibility tested in 3 ways. In this method we can't buy fixed type listed nfts. this method buying by using auctionBuyingMethodwhich works fine.
+
+a. Trying to buy for the first time with an ask amount before max. time. which shows this console log ("your bid is the current highest bid, but not eligible to buy.") and added bid in current highest bid.
+b. Trying to buy nft 2nd time with an ask amount before max. time. which reverts this message to "your bid is not higher than the highest bid."
+c. Trying to buy nft 3rd time with the highest bid before max. time. which shows this console log ("your bid is the current highest bid, but not eligible to buy.") and the added bid in the current highest bid.
+d. Trying to buy nft 4th time with the highest bid after max. time. which reverts this message to "bid time is over."
+e. If no bid is placed in bid running time. Actually the current highest bidder address is address(0). And some one bid with amount equal to ask amount then shows console.log ("You won the bid, Auction time is over and your bid is highest.")
+f. Trying to buy nft with maxAskAmount bid before max. time. which shows this console log ("You won the bid. your bid is >= maxAskAmount.") and added bid in the current highest bid.
+
+7.5 auctionTokenTimeOver
+
+
+8. getFeePercentage method tested, by making visibility public and passing arguments.
+a. 500 x 2 % = 10 .
+b. 55 x 2 % = 1 (in float answer in 1.1) . 
+
+9. setFeePercent method tested in 2 ways.
+a. Passing arguments through unknown address, which revert this message "Ownable: caller is not the owner".
+b. Passing arguments through MP owner's address, argument stored in variable _feePercent.  And returning the correct value.
+onlyOwner Modifier working correctly.
+
+10. setPlatformAddr method tested in 2 ways.
+a. Passing arguments through unknown address, which revert this message "Ownable: caller is not the owner".
+b. Passing arguments through MP owner's address, argument stored in variable _platformFeeAddr.  And returning the correct value.
+onlyOwner Modifier working correctly.
+
+11. getMarketObj visibility public will return value of market. tested in 3 ways.
+a.  passing arguments of a market which has not been created yet, reverting this message "Market object not created."
+b. If nft listed as Auction type then this method returns value of Auction market working correctly.
+c. If nft listed as fixed type then this method returns the value of fixed market working correctly.
+ 
+this method using getPrivateUniqueKey method with private visibility.
+
+12. setERC20Token Visibility external and onlyOwner can call this function. In future if we need to update or change the erc20 token address then we can do this.
+
+13. auctionTokenTimeOver  Visibility external and onlyOwner can call this function. if the bidder bids with the highest bid amount through the bidTokenNFT method. but unable to win the bid, his address and bid amount stored in Market struct. And time of bid got over, so onlyOwner can call this function auctionTokenTimeOver, in this method last highest bidder selected as winner and nft will be transferred to his address.
+Note: Bidders need to approve the highest bid to MP first, otherwise this function will revert the message.

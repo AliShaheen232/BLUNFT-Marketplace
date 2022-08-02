@@ -2,11 +2,10 @@
 pragma solidity ^0.8.4;
 
 import "./ERC20.sol"; 
-// import "./access/Ownable.sol";
 
-contract My20Token is ERC20 {
+contract BlueLightToken is ERC20 {
     uint private _totalSupply;
-    constructor(uint totalSupply) ERC20("Quinn", "QIN") {
+    constructor(uint totalSupply) ERC20("BlueLightToken", "BLU") {
         _mint (msg.sender, _totalSupply = totalSupply);
     }
 

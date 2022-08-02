@@ -6,7 +6,7 @@ import "./ERC721URIStorage.sol";
 import "./Ownable.sol";
 
 contract BlueLightNFT is ERC721, ERC721URIStorage{
-    constructor() ERC721("Blue Light NFT", "BLC-NFT") {}
+    constructor() ERC721("Blue Light NFT", "BLU-NFT") {}
 
     function _baseURI() internal pure override returns (string memory) {
         return "www.ammag.com/";

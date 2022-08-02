@@ -18,6 +18,20 @@ contract WaterMelon is IWaterMelon, Helper, Ownable, ReentrancyGuard{
     using SafeMath for uint;
     using Address for address;
 
+    //////////////////// Errors
+    // string constant ZERO_ADDRESS = "WM-1";
+    // string constant NOT_VALID_NFT = "WM-2";
+    // string constant NOT_OWNER_OR_OPERATOR = "WM-3";
+    string constant MP_NOT_APPROVED = "WM-4";
+    string constant BID_RUNNING = "WM-5";
+    string constant CREATE_ACC_OR_LOGIN = "WM-6";
+    string constant PRICE_LESS_THAN_ZERO = "WM-7";
+    string constant MARKET_ORDER_OPENED = "WM-8";
+    string constant MARKET_ORDER_NOT_OPENED = "WM-9"; 
+    string constant VALUE_NOT_MATCHED = "WM-10";  
+    string constant NOT_REAL_TIME = "WM-11";  
+    string constant NFT_NOT_LISTED = "WM-12";  
+
     enum OrderType{
         None, 
         Fixed,
@@ -74,7 +88,7 @@ contract WaterMelon is IWaterMelon, Helper, Ownable, ReentrancyGuard{
                     uint currentHighestBid, address currentHighestBidder, uint auctionEndTime){
         
         bytes32 uniqueKey = getPrivateUniqueKey(nftContractAddress,tokenId);
-        require (markets[uniqueKey].orderStatus != OrderStatus.None, "Market object not created.");
+        require (markets[uniqueKey].orderStatus != OrderStatus.None, NFT_NOT_LISTED);
         
         if (markets[uniqueKey].orderType == OrderType.Auction){
         return (markets[uniqueKey].orderStatus, markets[uniqueKey].orderType, markets[uniqueKey].askAmount,
@@ -92,15 +106,14 @@ contract WaterMelon is IWaterMelon, Helper, Ownable, ReentrancyGuard{
     /////////////////// Listing NFT /////////////////////////////
     function listNFT(address nftContractAddress, uint256 tokenId, uint256 price, 
                     OrderType orderType, uint256 maxPrice, uint256 auctionEndTime) private{
-        (bytes32 uniqueKey, address owner, string memory iPFS) =_userDashboard.getNft( nftContractAddress, tokenId);
-        
+        (bytes32 uniqueKey,,,, address owner, string memory iPFS) =_userDashboard.getNft( nftContractAddress, tokenId);
         IERC721 nftContract = IERC721(nftContractAddress);
         // adding these 2 checks here because in last code anyone can list nft other than owner and not check approval of Marketplace.
         require (nftContract.getApproved(tokenId) == address(this), "MP is not approved.");
         require (nftContract.ownerOf(tokenId) == msg.sender, "caller is not token owner.");
-        require (markets[uniqueKey].orderStatus != OrderStatus.MarketOpen, "Market order is already opened");
-        require (price > 0,"Price Should be greater then 0");
-        require (_userDashboard.checkLogIn(msg.sender), "for listing this nft, create account first or login to your account.");
+        require (markets[uniqueKey].orderStatus != OrderStatus.MarketOpen, MARKET_ORDER_OPENED);
+        require (price > 0, PRICE_LESS_THAN_ZERO);
+        require (_userDashboard.checkLogIn(msg.sender), CREATE_ACC_OR_LOGIN);
         
         uint endTime = block.timestamp + auctionEndTime;
 
@@ -125,7 +138,7 @@ contract WaterMelon is IWaterMelon, Helper, Ownable, ReentrancyGuard{
     } 
     function listNFTForAuctionType(address nftContractAddress, uint256 tokenId, uint256 price, uint256 maxPrice, uint256 auctionEndTime) external virtual override{
         require (price < maxPrice, "end Price Should be greater than price"); 
-        require (auctionEndTime > 0, "time must be real."); 
+        require (auctionEndTime > 0, NOT_REAL_TIME); 
         // uint day = auctionEndTime * 1 days; for days uncomment this and pass day below.
         uint timeMinute = auctionEndTime * 1 minutes;
         listNFT(nftContractAddress, tokenId, price, OrderType.Auction, maxPrice, timeMinute);
@@ -155,7 +168,7 @@ contract WaterMelon is IWaterMelon, Helper, Ownable, ReentrancyGuard{
     function buyTokenFixNFT(address nftContractAddress, uint256 tokenId, uint price) external virtual override nonReentrant {  
         bytes32 uniqueKey = getPrivateUniqueKey(nftContractAddress,tokenId);
         
-        require(_erc20Token.allowance(msg.sender, address(this)) >= price, "You need to approve amount to MP.");
+        require(_erc20Token.allowance(msg.sender, address(this)) >= price, MP_NOT_APPROVED);
 
         (uint fee,uint royalityFee,uint ownerShare, address creator, IERC721 nftContract) 
         = fixedBuyingMethod(uniqueKey, msg.sender, price);
@@ -174,11 +187,11 @@ contract WaterMelon is IWaterMelon, Helper, Ownable, ReentrancyGuard{
     } 
     function fixedBuyingMethod(bytes32 uniqueKey, address newOwner, uint _amountValue) private returns (uint, uint,uint,address, IERC721 )  {
         bytes32 uniKey= uniqueKey;
-        require (_userDashboard.checkLogIn(newOwner), "for fixed buying, create account first or login to your account."); 
+        require (_userDashboard.checkLogIn(newOwner), CREATE_ACC_OR_LOGIN); 
         require(markets[uniqueKey].orderStatus == OrderStatus.MarketOpen, "Market order is not opened or not existed" ); 
         require(markets[uniqueKey].orderType != OrderType.Auction, "To buy nft auction type buy with bidTokenNFT." ); 
         //Buying got done only with equal amount not less or higher amount will be accepted.
-        require(markets[uniqueKey].askAmount == _amountValue, "Value not matched");
+        require(markets[uniqueKey].askAmount == _amountValue, VALUE_NOT_MATCHED);
 
         IERC721 nftContract = IERC721(markets[uniqueKey].contractAddress);
         (uint256 royality, address creator) = nftContract.getRoyalityDetails(markets[uniqueKey].tokenId);
@@ -221,7 +234,7 @@ contract WaterMelon is IWaterMelon, Helper, Ownable, ReentrancyGuard{
         require(markets[uniqueKey].orderType != OrderType.Fixed, "To buy nft fixed type buy with buyCurFixNFT/buyTokenFixNFT." ); 
         require (maxTime > currentTime, "Bid time is over.");
         require (markets[uniqueKey].currentHighestBid < amount, "your bid not higher than highest bid.");
-        require (_userDashboard.checkLogIn(msg.sender), "for bidding, create account first or login to your account.");
+        require (_userDashboard.checkLogIn(msg.sender), CREATE_ACC_OR_LOGIN);
 
         
             if( markets[uniqueKey].maxAskAmount <= amount ) {
@@ -252,7 +265,7 @@ contract WaterMelon is IWaterMelon, Helper, Ownable, ReentrancyGuard{
         // bytes32 uniqueKey = getPrivateUniqueKey(nftContractAddress,tokenID);
         bytes32 uniqueKey = _uniqueKey;
        
-        require(markets[uniqueKey].orderStatus == OrderStatus.MarketOpen, "Market order is not opened or not existed" ); 
+        require(markets[uniqueKey].orderStatus == OrderStatus.MarketOpen, MARKET_ORDER_NOT_OPENED ); 
 
         IERC721 nftContract = IERC721(markets[uniqueKey].contractAddress);
         (uint256 royality, address creator) = nftContract.getRoyalityDetails(markets[uniqueKey].tokenId);
@@ -285,7 +298,7 @@ contract WaterMelon is IWaterMelon, Helper, Ownable, ReentrancyGuard{
         uint amount = markets[uniqueKey].currentHighestBid ;
         address successfulBidder = markets[uniqueKey].currentHighestBidder ;
         
-        require (maxTime <= currentTime, "Bid is runing.");
+        require (maxTime <= currentTime, BID_RUNNING);
 
         (uint fee,uint royalityFee,uint ownerShare, address creator, IERC721 nftContract)= 
             auctionBuyingMethod(uniqueKey, amount, successfulBidder);

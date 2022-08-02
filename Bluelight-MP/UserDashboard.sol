@@ -4,14 +4,17 @@ pragma solidity =0.8.4;
 import "./IERC721.sol";
 import "./IWaterMelon.sol";
 import "./IUserDashboard.sol";
+import "./Helper.sol";
 
-contract UserDashboard is IUserDashboard{
+
+contract UserDashboard is IUserDashboard, Helper{
 
     event LoggingIn (address indexed user, uint timeStamp);
     event LoggingOut (address indexed user, uint timeStamp);
     event SignUp (address indexed user, string username, uint timeStamp);
     
     struct MyNFT{
+        string nftName;
         address contractAddress;
         uint256 tokenId;
         address owner;
@@ -41,18 +44,16 @@ contract UserDashboard is IUserDashboard{
     constructor(address wmAddr){
         waterMelonAddr = IWaterMelon(wmAddr);
     }
-    function getPrivateUniqueKey(address nftContractAddress, uint256 tokenId) internal pure returns (bytes32 NFTUniKey){
-        return keccak256(abi.encodePacked(nftContractAddress, tokenId));
-    }
-    function setNftData(address owner, address nftContractAddress, uint256 tokenId, string memory iPFS) external virtual override{
-        
+    function setNft(string memory _name,  address nftContractAddress, uint256 tokenId, string memory iPFS) external virtual override{
+        require (users[msg.sender].loggedIn, "you're not loggedIn.");
+
         bytes32 uniKey = getPrivateUniqueKey(nftContractAddress, tokenId); 
-        
+        myNFTs[uniKey].nftName = _name;
         myNFTs[uniKey].contractAddress = nftContractAddress;
         myNFTs[uniKey].tokenId = tokenId;
-        myNFTs[uniKey].owner = owner;
+        myNFTs[uniKey].owner = msg.sender;
         myNFTs[uniKey].ipfs = iPFS;
-        uniKeysMapping[owner].push(uniKey);  
+        uniKeysMapping[msg.sender].push(uniKey);  
     }
     function setBuyNftData(address owner, bytes32 uniKey) external virtual override{
         
@@ -60,14 +61,20 @@ contract UserDashboard is IUserDashboard{
         
         uniKeysMapping[owner].push(uniKey);  
     }
-    function getNftdata(bytes32 _uniKey) external virtual override view returns(address nftContractAddress, uint256 tokenId, address owner, string memory iPFS){
+    function getNftWithBytes32(bytes32 _uniKey) external virtual override view 
+        returns(string memory _name, address nftContractAddress, uint256 tokenId, address owner, string memory iPFS){
         bytes32 uniKey = _uniKey;
         
-        return ( myNFTs[uniKey].contractAddress,
-        myNFTs[uniKey].tokenId,
-        myNFTs[uniKey].owner,
+        return (myNFTs[uniKey].nftName, myNFTs[uniKey].contractAddress, myNFTs[uniKey].tokenId, myNFTs[uniKey].owner,
         myNFTs[uniKey].ipfs
         );
+    }
+    function getNft(address _nftContractAddress, uint256 _tokenId) external virtual override view 
+        returns(bytes32 uniKey,  address owner, string memory iPFS){
+        
+        bytes32 _uniKey = getPrivateUniqueKey(_nftContractAddress, _tokenId); 
+
+        return (_uniKey, myNFTs[_uniKey].owner, myNFTs[_uniKey].ipfs);
     }
     function getUniKeysMapping(address ownerOfNfts) external view returns(bytes32[] memory){
         return uniKeysMapping[ownerOfNfts];

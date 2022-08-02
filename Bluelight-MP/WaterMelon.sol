@@ -90,9 +90,10 @@ contract WaterMelon is IWaterMelon, Helper, Ownable, ReentrancyGuard{
     }   
     /*Need to list currency and tokens with different amount as per thier price difference ...method needed...*/
     /////////////////// Listing NFT /////////////////////////////
-    function listNFT(address nftContractAddress, uint256 tokenId, string memory iPFS, uint256 price, 
+    function listNFT(address nftContractAddress, uint256 tokenId, uint256 price, 
                     OrderType orderType, uint256 maxPrice, uint256 auctionEndTime) private{
-        bytes32 uniqueKey = getPrivateUniqueKey(nftContractAddress,tokenId);
+        (bytes32 uniqueKey, address owner, string memory iPFS) =_userDashboard.getNft( nftContractAddress, tokenId);
+        
         IERC721 nftContract = IERC721(nftContractAddress);
         // adding these 2 checks here because in last code anyone can list nft other than owner and not check approval of Marketplace.
         require (nftContract.getApproved(tokenId) == address(this), "MP is not approved.");
@@ -110,7 +111,7 @@ contract WaterMelon is IWaterMelon, Helper, Ownable, ReentrancyGuard{
         markets[uniqueKey].contractAddress = nftContractAddress;
         markets[uniqueKey].tokenId = tokenId;
         markets[uniqueKey].ipfs = iPFS;
-        markets[uniqueKey].currentOwner = payable(msg.sender);
+        markets[uniqueKey].currentOwner = payable(owner);
         markets[uniqueKey].marketCreationTime = block.timestamp;
         markets[uniqueKey].auctionEndTime = endTime;
         markets[uniqueKey].currentHighestBid = 0; ///after buying any nft, If new owner wanted to list nft of same 
@@ -118,17 +119,16 @@ contract WaterMelon is IWaterMelon, Helper, Ownable, ReentrancyGuard{
         markets[uniqueKey].newOwner = address(0); 
         markets[uniqueKey].currentHighestBidder = address(0);
 
-        _userDashboard.setNftData(msg.sender, nftContractAddress, tokenId, iPFS);
     }
-    function listNFTForFixedType(address nftContractAddress, uint256 tokenId, string memory iPFS, uint256 price) external virtual override{
-        listNFT(nftContractAddress,tokenId, iPFS, price,OrderType.Fixed, 0,0);
+    function listNFTForFixedType(address nftContractAddress, uint256 tokenId, uint256 price) external virtual override{
+        listNFT(nftContractAddress,tokenId, price,OrderType.Fixed, 0,0);
     } 
-    function listNFTForAuctionType(address nftContractAddress, uint256 tokenId,string memory iPFS, uint256 price, uint256 maxPrice, uint256 auctionEndTime) external virtual override{
+    function listNFTForAuctionType(address nftContractAddress, uint256 tokenId, uint256 price, uint256 maxPrice, uint256 auctionEndTime) external virtual override{
         require (price < maxPrice, "end Price Should be greater than price"); 
         require (auctionEndTime > 0, "time must be real."); 
         // uint day = auctionEndTime * 1 days; for days uncomment this and pass day below.
         uint timeMinute = auctionEndTime * 1 minutes;
-        listNFT(nftContractAddress, tokenId,iPFS, price, OrderType.Auction, maxPrice, timeMinute);
+        listNFT(nftContractAddress, tokenId, price, OrderType.Auction, maxPrice, timeMinute);
     }      
     /////////////////// Buying fix ///////////////////////////
     function buyCurFixNFT(address nftContractAddress, uint256 tokenId ) external virtual override nonReentrant payable{ 
@@ -136,7 +136,7 @@ contract WaterMelon is IWaterMelon, Helper, Ownable, ReentrancyGuard{
         uint _amountValue = msg.value;
                 
         (uint fee, uint royalityFee, uint ownerShare, address creator, IERC721 nftContract) =  
-        fixedBuyingMethod(nftContractAddress, tokenId, msg.sender, _amountValue);
+        fixedBuyingMethod(uniqueKey, msg.sender, _amountValue);
             
         // transfer nft to new user 
         nftContract.safeTransferFrom(markets[uniqueKey].currentOwner, msg.sender, tokenId);
@@ -149,8 +149,6 @@ contract WaterMelon is IWaterMelon, Helper, Ownable, ReentrancyGuard{
         _userDashboard.setAmountRecord(markets[uniqueKey].currentOwner,0,0,ownerShare,0); 
         _userDashboard.setAmountRecord(msg.sender,_amountValue,0,0,0); 
         
-        _userDashboard.setNftData(msg.sender, nftContractAddress, tokenId, iPFS);
-
         // _userDashboard.setNftData(msg.sender, nftContractAddress, tokenId, price, maxPrice, 0,address(0), block.timestamp, endTime);
 
     }
@@ -160,7 +158,7 @@ contract WaterMelon is IWaterMelon, Helper, Ownable, ReentrancyGuard{
         require(_erc20Token.allowance(msg.sender, address(this)) >= price, "You need to approve amount to MP.");
 
         (uint fee,uint royalityFee,uint ownerShare, address creator, IERC721 nftContract) 
-        = fixedBuyingMethod(nftContractAddress, tokenId, msg.sender, price);
+        = fixedBuyingMethod(uniqueKey, msg.sender, price);
         // transfer nft to new user 
         
         nftContract.safeTransferFrom(markets[uniqueKey].currentOwner, msg.sender, tokenId);
@@ -174,8 +172,8 @@ contract WaterMelon is IWaterMelon, Helper, Ownable, ReentrancyGuard{
         _userDashboard.setAmountRecord(markets[uniqueKey].currentOwner,0,0,0,ownerShare); 
         _userDashboard.setAmountRecord(msg.sender,0,price,0,0); 
     } 
-    function fixedBuyingMethod(address nftContractAddress, uint256 tokenID, address newOwner, uint _amountValue) private returns (uint, uint,uint,address, IERC721 )  {
-        bytes32 uniqueKey = getPrivateUniqueKey(nftContractAddress,tokenID);
+    function fixedBuyingMethod(bytes32 uniqueKey, address newOwner, uint _amountValue) private returns (uint, uint,uint,address, IERC721 )  {
+        bytes32 uniKey= uniqueKey;
         require (_userDashboard.checkLogIn(newOwner), "for fixed buying, create account first or login to your account."); 
         require(markets[uniqueKey].orderStatus == OrderStatus.MarketOpen, "Market order is not opened or not existed" ); 
         require(markets[uniqueKey].orderType != OrderType.Auction, "To buy nft auction type buy with bidTokenNFT." ); 
@@ -183,19 +181,20 @@ contract WaterMelon is IWaterMelon, Helper, Ownable, ReentrancyGuard{
         require(markets[uniqueKey].askAmount == _amountValue, "Value not matched");
 
         IERC721 nftContract = IERC721(markets[uniqueKey].contractAddress);
-        (uint256 royality, address creator) = nftContract.getRoyalityDetails(tokenID);
+        (uint256 royality, address creator) = nftContract.getRoyalityDetails(markets[uniqueKey].tokenId);
 
         //platform fee
         uint256 fee = getFeePercentage(_amountValue, _feePercent);
-
+ 
         // Royality 
         uint256 royalityFee = getFeePercentage(_amountValue, royality);
         
         uint256 ownerShare = _amountValue.sub(fee.add(royalityFee));
         
         // nft market close
-        markets[uniqueKey].orderStatus = OrderStatus.MarketClosed;
-        markets[uniqueKey].newOwner = newOwner;
+        markets[uniKey].orderStatus = OrderStatus.MarketClosed;
+        markets[uniKey].newOwner = newOwner;
+        _userDashboard.setBuyNftData(newOwner, uniKey);
 
         return (fee, royalityFee, ownerShare, creator, nftContract);
     }
@@ -230,7 +229,7 @@ contract WaterMelon is IWaterMelon, Helper, Ownable, ReentrancyGuard{
             markets[uniqueKey].currentHighestBidder = msg.sender;
 
             (uint fee,uint royalityFee,uint ownerShare, address creator, IERC721 nftContract)= 
-            auctionBuyingMethod(nftContractAddress, tokenId, amount, msg.sender);
+            auctionBuyingMethod(uniqueKey, amount, msg.sender);
                 
 
             nftContract.safeTransferFrom(markets[uniqueKey].currentOwner, msg.sender, tokenId);
@@ -249,20 +248,21 @@ contract WaterMelon is IWaterMelon, Helper, Ownable, ReentrancyGuard{
             console.log("your bid is current highest bid, but not eligible to buy.");
             }               
     }
-    function auctionBuyingMethod(address nftContractAddress, uint256 tokenID, uint _amountValue, address _newOwner) private  returns (uint, uint,uint,address, IERC721 )  {
-        bytes32 uniqueKey = getPrivateUniqueKey(nftContractAddress,tokenID);
+    function auctionBuyingMethod(bytes32 _uniqueKey, uint _amountValue, address _newOwner) private  returns (uint, uint,uint,address, IERC721 )  {
+        // bytes32 uniqueKey = getPrivateUniqueKey(nftContractAddress,tokenID);
+        bytes32 uniqueKey = _uniqueKey;
        
         require(markets[uniqueKey].orderStatus == OrderStatus.MarketOpen, "Market order is not opened or not existed" ); 
 
         IERC721 nftContract = IERC721(markets[uniqueKey].contractAddress);
-        (uint256 royality, address creator) = nftContract.getRoyalityDetails(tokenID);
+        (uint256 royality, address creator) = nftContract.getRoyalityDetails(markets[uniqueKey].tokenId);
 
         //platform fee
-        uint256 fee = getFeePercentage(_amountValue, _feePercent);
+        uint256 fee = getFeePercentage(_amountValue, _feePercent); 
 
         // Royality 
         uint256 royalityFee = getFeePercentage(_amountValue, royality);
-
+ 
         uint256 ownerShare = _amountValue.sub(fee.add(royalityFee));
 
         // nft market close
@@ -272,7 +272,9 @@ contract WaterMelon is IWaterMelon, Helper, Ownable, ReentrancyGuard{
 
         _userDashboard.setAmountRecord(creator,0,0,0,royalityFee); 
         _userDashboard.setAmountRecord(markets[uniqueKey].currentOwner,0,0,0,ownerShare); 
-        _userDashboard.setAmountRecord(msg.sender,0,amount,0,0); 
+        _userDashboard.setAmountRecord(_newOwner,0,amount,0,0); 
+        _userDashboard.setBuyNftData(_newOwner, uniqueKey);
+
 
         return (fee, royalityFee, ownerShare, creator, nftContract);
     }
@@ -284,8 +286,9 @@ contract WaterMelon is IWaterMelon, Helper, Ownable, ReentrancyGuard{
         address successfulBidder = markets[uniqueKey].currentHighestBidder ;
         
         require (maxTime <= currentTime, "Bid is runing.");
+
         (uint fee,uint royalityFee,uint ownerShare, address creator, IERC721 nftContract)= 
-            auctionBuyingMethod(nftContractAddress, tokenId, amount, successfulBidder);
+            auctionBuyingMethod(uniqueKey, amount, successfulBidder);
        
         nftContract.safeTransferFrom(markets[uniqueKey].currentOwner, successfulBidder, tokenId);
     

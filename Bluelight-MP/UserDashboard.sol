@@ -18,12 +18,12 @@ contract UserDashboard is IUserDashboard, Helper{
     string constant USER_EXISTED = "WMU-4";
     string constant USER_NOT_EXISTED = "WMU-5";
     string constant USER_NAME_EXISTED = "WMU-6"; 
-    
+    IWaterMelon private marketplace;
+
     event LoggingIn (address indexed user, uint timeStamp);
     event LoggingOut (address indexed user, uint timeStamp);
     event SignUp (address indexed user, string username, uint timeStamp);
     
-    IWaterMelon private waterMelonAddr;
     mapping (bytes32 => MyNFT) public myNFTs;
     mapping (address => bytes32[]) public uniKeysMapping;
     mapping (NftCategory => bytes32[]) public nftCatWise;
@@ -57,9 +57,8 @@ contract UserDashboard is IUserDashboard, Helper{
         uint curAmountEarned;
         uint tokenAmountEarned;
     }
-
-    constructor(address wmAddr){
-        waterMelonAddr = IWaterMelon(wmAddr);
+    constructor(address _marketplace){
+        marketplace = IWaterMelon(_marketplace);
     }
     function setNft(string memory _name, address nftContractAddress, uint256 tokenId, string memory iPFS) external virtual override{
         require (users[msg.sender].loggedIn, CREATE_ACC_OR_LOGIN);
@@ -80,11 +79,11 @@ contract UserDashboard is IUserDashboard, Helper{
         nftCatWise[nftCat].push(uniKey);
         userNftCatWise[msg.sender][nftCat].push(uniKey);
     }
-    function setBuyNftData(address owner, bytes32 uniKey) external virtual override{
+    function setBuyNftData(address newOwner, bytes32 uniKey) external virtual override{
+        require(marketplace == IWaterMelon(msg.sender), "call from wrong MP." );
+        myNFTs[uniKey].owner = newOwner;
         
-        myNFTs[uniKey].owner = owner;
-        
-        uniKeysMapping[owner].push(uniKey);  
+        uniKeysMapping[newOwner].push(uniKey);  
     }    
     /////////////////////// Get Methods ////////////////////////////
     function getAllNftCatWise(NftCategory nftCat) external view returns(bytes32[] memory){
@@ -103,6 +102,7 @@ contract UserDashboard is IUserDashboard, Helper{
         return (myNFTs[uniKey].nftName, myNFTs[uniKey].contractAddress, myNFTs[uniKey].tokenId, myNFTs[uniKey].owner,
         myNFTs[uniKey].ipfs);
     }
+    
     function getNft(address _nftContractAddress, uint256 _tokenId) external virtual override view 
         returns(bytes32 uniKey, address nftContractAddress, uint tokenId, string memory name, address owner, string memory iPFS){
         

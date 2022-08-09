@@ -3,7 +3,7 @@ pragma solidity =0.8.4;
 
 interface IWaterMelon{
     function setUserDashboard (address userDashboard) external;
-    function setERC20Token (address erc20Token) external;
+    function setERC20Token (address erc20Token) external; 
     function setFeePercent (uint256 value) external;
     function setPlatformAddr (address payable _addr) external;
     function listNFTForFixedType(address nftContractAddress, uint256 tokenId, uint256 price) external;

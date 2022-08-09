@@ -19,9 +19,6 @@ contract WaterMelon is IWaterMelon, Helper, Ownable, ReentrancyGuard{
     using Address for address;
 
     //////////////////// Errors
-    // string constant ZERO_ADDRESS = "WM-1";
-    // string constant NOT_VALID_NFT = "WM-2";
-    // string constant NOT_OWNER_OR_OPERATOR = "WM-3";
     string constant MP_NOT_APPROVED = "WM-4";
     string constant BID_RUNNING = "WM-5";
     string constant CREATE_ACC_OR_LOGIN = "WM-6";
@@ -76,6 +73,10 @@ contract WaterMelon is IWaterMelon, Helper, Ownable, ReentrancyGuard{
     function setERC20Token (address erc20Token) external virtual override onlyOwner{
         _erc20Token = IERC20(erc20Token); 
     }
+    function getERC20Token () external view returns (IERC20){
+        // address erc20 = _erc20Token;
+        return _erc20Token; 
+    }
     function setFeePercent (uint256 value) external virtual override onlyOwner{
         _feePercent = value; 
     }
@@ -109,13 +110,14 @@ contract WaterMelon is IWaterMelon, Helper, Ownable, ReentrancyGuard{
         (bytes32 uniqueKey,,,, address owner, string memory iPFS) =_userDashboard.getNft( nftContractAddress, tokenId);
         IERC721 nftContract = IERC721(nftContractAddress);
         // adding these 2 checks here because in last code anyone can list nft other than owner and not check approval of Marketplace.
-        require (nftContract.getApproved(tokenId) == address(this), "MP is not approved.");
-        require (nftContract.ownerOf(tokenId) == msg.sender, "caller is not token owner.");
+        // require (nftContract.getApproved(tokenId) == address(this), "MP is not approved.");
+        // require (nftContract.ownerOf(tokenId) == msg.sender, "caller is not token owner.");
         require (markets[uniqueKey].orderStatus != OrderStatus.MarketOpen, MARKET_ORDER_OPENED);
         require (price > 0, PRICE_LESS_THAN_ZERO);
         require (_userDashboard.checkLogIn(msg.sender), CREATE_ACC_OR_LOGIN);
         
         uint endTime = block.timestamp + auctionEndTime;
+        nftContract.transferFrom(msg.sender, address(this), tokenId);
 
         markets[uniqueKey].orderStatus = OrderStatus.MarketOpen; 
         markets[uniqueKey].orderType = orderType;
@@ -207,6 +209,7 @@ contract WaterMelon is IWaterMelon, Helper, Ownable, ReentrancyGuard{
         // nft market close
         markets[uniKey].orderStatus = OrderStatus.MarketClosed;
         markets[uniKey].newOwner = newOwner;
+        
         _userDashboard.setBuyNftData(newOwner, uniKey);
 
         return (fee, royalityFee, ownerShare, creator, nftContract);
